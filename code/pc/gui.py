@@ -1,54 +1,64 @@
-import tkinter as tk
-from tkinter.ttk import *
-from tkinter import *
+from PIL import Image
 import numpy as np
 import serial
-import threading
+import time
 
-import tkinter as tk
+arduino = serial.Serial(port='COM5', baudrate=115200, timeout=.1) 
 
-# serial_port = serial.Serial('/dev/ttyACM0', 115200)
-# serial_data = ""
-capture_command = "capture"
+# Define the width and height of the image
+WIDTH = 160
+HEIGHT = 120
 
-class CaptureGUI:
-    def __init__(self, master):
-        self.master = master
-        self.master.title("CSSE4011 Project GUI")
-        
-        self.create_widgets()
+# Function to convert RGB to 8-bit RRRBBGGG
+def convert_rgb_to_8bit(r, g, b):
+    r_3bit = (r * 7) // 255   # Map 8-bit red to 3-bit
+    g_3bit = (g * 7) // 255   # Map 8-bit green to 3-bit
+    b_2bit = (b * 3) // 255   # Map 8-bit blue to 2-bit
+    return (r_3bit << 5) | (b_2bit << 3) | g_3bit
 
-    def create_widgets(self):
-        # Create a canvas for the grid
-        cell_size=100
-        self.canvas = tk.Canvas(self.master, width=1920, height=1080, bg="white")
-        self.canvas.pack(side=tk.RIGHT, padx=10, pady=10)
+# Load the image
+img = Image.open("team.jpg")
 
-        self.canvas.create_line(400, 150, 1100, 150)
-        self.canvas.create_line(400, 600, 1100, 600)
-        self.canvas.create_line(400, 150, 400, 600)
-        self.canvas.create_line(1100, 150, 1100, 600)
+# Resize the image to 320x240
+img = img.resize((WIDTH, HEIGHT))
 
-        self.capture_button = tk.Button(self.master, text="Capture Image", command=self.capture_image)
-        self.capture_button.pack(side=tk.BOTTOM, pady=10)
-        self.canvas.create_window(750,650,window=self.capture_button)
+# Convert the image to RGB
+img = img.convert("RGB")
+
+# Get the RGB values as a NumPy array
+rgb_array = np.array(img)
+
+for _ in range(8):
+    arduino.write(bytes("12345678", 'utf-8'))
+    data = arduino.readline().decode('utf-8').strip()
+    print(data)
+
+
+for y in range(HEIGHT):
+    for x in range(0, WIDTH, 4):
+        r1, g1, b1 = rgb_array[y, x]
+        r2, g2, b2 = rgb_array[y, x + 1]
+        r3, g3, b3 = rgb_array[y, x + 2]
+        r4, g4, b4 = rgb_array[y, x + 3]
+        packed_value_1 = (convert_rgb_to_8bit(r1, g1, b1))
+        packed_value_2 = (convert_rgb_to_8bit(r2, g2, b2))
+        packed_value_3 = (convert_rgb_to_8bit(r3, g3, b3))
+        packed_value_4 = (convert_rgb_to_8bit(r4, g4, b4))
+        data_to_send = f"{packed_value_1:02X}{packed_value_2:02X}{packed_value_3:02X}{packed_value_4:02X}"
+        #data_to_send = f"{packed_value_1[2:]:0<2}{packed_value_2[2:]:0<2}{packed_value_3[2:]:0<2}{packed_value_4[2:]:0<2}"
+        arduino.write(bytes(data_to_send, 'utf-8'))
+        #time.sleep(0.01) 
+        data = arduino.readline().decode('utf-8').strip()
+        print(data)
+        #time.sleep(0.001)
+        #print(data_to_send)
     
-    def capture_image(self):
-        serial_port.write(capture_command.encode() + b'\n')
+    arduino.write(bytes("12345678", 'utf-8'))
+    data = arduino.readline().decode('utf-8').strip()
+    print(data)
+    arduino.write(bytes("12345678", 'utf-8'))
+    data = arduino.readline().decode('utf-8').strip()
+    print(data)
 
-def data_thread():
-    while True:
-        serial_data = serial_port.readline().decode()
-        print(serial_data)
-        serial_data = ""
 
-def main():
-    root = tk.Tk()
-    global app 
-    app = CaptureGUI(root)
-    # communication_process = threading.Thread(target=data_thread, args=())
-    # communication_process.start()
-    root.mainloop()
-
-if __name__ == "__main__":
-    main()
+print("Transmission Complete")

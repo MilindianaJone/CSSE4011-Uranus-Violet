@@ -1,9 +1,12 @@
 sample:
-  name: Blink LED (PWM based)
+  name: Blinky Sample
 tests:
-  sample.basic.blink_led:
+  sample.basic.blinky:
     tags:
-      - drivers
-      - pwm
-    depends_on: pwm
+      - LED
+      - gpio
+    filter: dt_enabled_alias_with_parent_compat("led0", "gpio-leds")
+    depends_on: gpio
     harness: led
+    integration_platforms:
+      - frdm_k64f

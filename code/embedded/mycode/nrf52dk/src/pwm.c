@@ -13,42 +13,84 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/pwm.h>
+#include <zephyr/drivers/gpio.h>
 
 static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
 
-#define PERIOD PWM_SEC(1U) / 200U
+/* 1000 msec = 1 sec */
+#define SLEEP_TIME_MS   1000
+
+/* The devicetree node identifier for the "led0" alias. */
+#define LED0_NODE DT_ALIAS(sensor0)
+
+/*
+ * A build error on this line means your board is unsupported.
+ * See the sample documentation for information on how to fix this.
+ */
+static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+
+#define NANOSECPERIOD 25000U
+
+#define BIG_PERIOD 2000000U
 
 int main(void)
 {
-	uint32_t max_period;
-	uint32_t period;
-	uint8_t dir = 0U;
-	int ret;
-
-	printk("PWM-based blinky\n");
 
 	if (!pwm_is_ready_dt(&pwm_led0)) {
-		printk("Error: PWM device %s is not ready\n",
-		       pwm_led0.dev->name);
 		return 0;
 	}
 
+	int ret;
+	bool led_state = true;
+
+	if (!gpio_is_ready_dt(&led)) {
+		return 0;
+	}
+
+	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
+	if (ret < 0) {
+		return 0;
+	}
+
+	pwm_set_dt(&pwm_led0, NANOSECPERIOD, NANOSECPERIOD / 4U);
 	/*
-	 * In case the default MAX_PERIOD value cannot be set for
-	 * some PWM hardware, decrease its value until it can.
-	 *
-	 * Keep its value at least MIN_PERIOD * 4 to make sure
-	 * the sample changes frequency at least once.
-	 */
-	printk("Calibrating for channel %d...\n", pwm_led0.channel);
+	// Restore PWM pulse width to its original value
+	pwm_set_dt(&pwm_led0, NANOSECPERIOD, NANOSECPERIOD / 4U);
+
+	// Delay for 9ms
+	k_sleep(K_USEC(9000));
+
+	// Turn off PWM by setting pulse width to zero
+	pwm_set_pulse_dt(&pwm_led0, 0);
+
+	// Delay for 4.5ms
+	k_sleep(K_USEC(4500));
+	*/
+
 
 	while (1) {
-		ret = pwm_set_dt(&pwm_led0, PERIOD, PERIOD / 2U);
-		if (ret) {
-			printk("Error %d: failed to set pulse width\n", ret);
-			return 0;
-		}
 
+
+        gpio_pin_set_dt(&led, 1);
+        k_usleep(1);  // 562.2 µs burst
+        //k_msleep(1);
+        gpio_pin_set_dt(&led, 0);
+        //k_msleep(1);
+        k_usleep(1); // 1.687 ms low period
+        //k_sleep(K_SECONDS(1));
+		// Restore PWM pulse width to its original value
+		// pwm_set_pulse_dt(&pwm_led0, NANOSECPERIOD / 2);
+
+		// // Delay for 562 microseconds
+		// k_sleep(K_USEC(560));
+
+		// // Turn off PWM by setting pulse width to zero
+		// pwm_set_pulse_dt(&pwm_led0, 1000);
+
+		// // Delay for 1680 microseconds
+		// k_sleep(K_USEC(560));
+			
 	}
-	return 0;
+
+    return 0;
 }

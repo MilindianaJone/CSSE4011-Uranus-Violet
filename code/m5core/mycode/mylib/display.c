@@ -54,6 +54,7 @@ int main(void)
 	buf_desc.height = h_step;
 
 	display_blanking_off(display_dev);
+	printf("%d\n", buf_size);
 
 	while (1) {
 		for (int y = 0; y < capabilities.y_resolution; y += h_step) {
